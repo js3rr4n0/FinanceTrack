@@ -13,25 +13,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'Database initialized' });
     }
 
-    let dateFilter = '';
     const now = new Date();
+    let result;
     
     if (filter === 'week') {
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      dateFilter = `WHERE date >= '${weekAgo.toISOString()}'`;
+      result = await sql`
+        SELECT * FROM transactions 
+        WHERE date >= ${weekAgo.toISOString()}
+        ORDER BY date DESC, created_at DESC
+      `;
     } else if (filter === 'month') {
       const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      dateFilter = `WHERE date >= '${monthAgo.toISOString()}'`;
+      result = await sql`
+        SELECT * FROM transactions 
+        WHERE date >= ${monthAgo.toISOString()}
+        ORDER BY date DESC, created_at DESC
+      `;
     } else if (filter === 'year') {
       const yearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-      dateFilter = `WHERE date >= '${yearAgo.toISOString()}'`;
+      result = await sql`
+        SELECT * FROM transactions 
+        WHERE date >= ${yearAgo.toISOString()}
+        ORDER BY date DESC, created_at DESC
+      `;
+    } else {
+      result = await sql`
+        SELECT * FROM transactions 
+        ORDER BY date DESC, created_at DESC
+      `;
     }
-
-    const result = await sql`
-      SELECT * FROM transactions 
-      ${dateFilter ? sql.unsafe(dateFilter) : sql``}
-      ORDER BY date DESC, created_at DESC
-    `;
 
     return NextResponse.json({ transactions: result.rows });
   } catch (error) {
