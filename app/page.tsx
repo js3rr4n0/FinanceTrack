@@ -11,6 +11,9 @@ import AIAnalysis from '@/components/AIAnalysis';
 import { Transaction, FinancialSummary } from '@/types';
 import { Wallet, TrendingUp, BarChart3, Sparkles } from 'lucide-react';
 
+// Deshabilitar pre-renderizado estático
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState<FinancialSummary>({
@@ -21,6 +24,7 @@ export default function Home() {
   });
   const [filter, setFilter] = useState<'all' | 'week' | 'month' | 'year'>('month');
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'analysis'>('overview');
+  const [isLoading, setIsLoading] = useState(true);
 
   const calculateSummary = useCallback((txns: Transaction[]) => {
     const income = txns.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
@@ -40,6 +44,7 @@ export default function Home() {
 
   const fetchTransactions = useCallback(async () => {
     try {
+      setIsLoading(true);
       const response = await fetch(`/api/transactions?filter=${filter}`);
       const data = await response.json();
       const txns = data.transactions || [];
@@ -48,6 +53,8 @@ export default function Home() {
     } catch (error) {
       console.error('Error fetching transactions:', error);
       setTransactions([]);
+    } finally {
+      setIsLoading(false);
     }
   }, [filter, calculateSummary]);
 
@@ -63,6 +70,17 @@ export default function Home() {
     initializeDB();
     fetchTransactions();
   }, [filter, fetchTransactions, initializeDB]);
+
+  if (isLoading && transactions.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-text-secondary">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-4 md:p-8 relative overflow-hidden">
