@@ -10,7 +10,7 @@ interface Props {
   summary: FinancialSummary;
 }
 
-export default function AIAnalysis({ transactions, summary }: Props) {
+export default function AIAnalysis({ transactions = [], summary }: Props) {
   const [analysis, setAnalysis] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
@@ -33,6 +33,10 @@ export default function AIAnalysis({ transactions, summary }: Props) {
     }
   };
 
+  const transactionCount = transactions?.length || 0;
+  const expenseCount = transactions?.filter(t => t.type === 'expense')?.length || 0;
+  const categoryCount = transactions ? new Set(transactions.map(t => t.category)).size : 0;
+
   return (
     <div className="space-y-6">
       {/* Quick Stats */}
@@ -42,7 +46,7 @@ export default function AIAnalysis({ transactions, summary }: Props) {
             <TrendingUp className="w-4 h-4 text-green-400" />
             <span className="text-xs text-text-secondary">Transacciones</span>
           </div>
-          <p className="text-2xl font-bold">{transactions.length}</p>
+          <p className="text-2xl font-bold">{transactionCount}</p>
         </div>
 
         <div className="glass-effect p-4 rounded-xl">
@@ -50,7 +54,7 @@ export default function AIAnalysis({ transactions, summary }: Props) {
             <TrendingDown className="w-4 h-4 text-red-400" />
             <span className="text-xs text-text-secondary">Gastos</span>
           </div>
-          <p className="text-2xl font-bold">{transactions.filter(t => t.type === 'expense').length}</p>
+          <p className="text-2xl font-bold">{expenseCount}</p>
         </div>
 
         <div className="glass-effect p-4 rounded-xl">
@@ -58,7 +62,9 @@ export default function AIAnalysis({ transactions, summary }: Props) {
             <AlertTriangle className="w-4 h-4 text-yellow-400" />
             <span className="text-xs text-text-secondary">Estado</span>
           </div>
-          <p className="text-2xl font-bold capitalize">{summary.status === 'healthy' ? '💚' : summary.status === 'warning' ? '⚠️' : '🚨'}</p>
+          <p className="text-2xl font-bold capitalize">
+            {summary?.status === 'healthy' ? '💚' : summary?.status === 'warning' ? '⚠️' : '🚨'}
+          </p>
         </div>
 
         <div className="glass-effect p-4 rounded-xl">
@@ -66,7 +72,7 @@ export default function AIAnalysis({ transactions, summary }: Props) {
             <Lightbulb className="w-4 h-4 text-purple-400" />
             <span className="text-xs text-text-secondary">Categorías</span>
           </div>
-          <p className="text-2xl font-bold">{new Set(transactions.map(t => t.category)).size}</p>
+          <p className="text-2xl font-bold">{categoryCount}</p>
         </div>
       </div>
 
@@ -91,7 +97,7 @@ export default function AIAnalysis({ transactions, summary }: Props) {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleAnalyze}
-            disabled={transactions.length === 0}
+            disabled={transactionCount === 0}
             className="w-full py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl font-bold text-lg shadow-lg shadow-purple-500/50 hover:shadow-purple-500/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Generar Análisis Inteligente
@@ -129,7 +135,7 @@ export default function AIAnalysis({ transactions, summary }: Props) {
           </motion.div>
         )}
 
-        {transactions.length === 0 && (
+        {transactionCount === 0 && (
           <div className="text-center py-8">
             <p className="text-text-secondary">Agrega algunas transacciones para obtener un análisis</p>
           </div>
