@@ -1,212 +1,176 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Upload, Camera, X, Loader2, CheckCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Transaction } from '@/types';
+import { formatCurrency } from '@/lib/utils';
+import { Trash2, MapPin, CreditCard, Image as ImageIcon, ChevronDown } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import toast from 'react-hot-toast';
 
 interface Props {
-  onSuccess: () => void;
+  transactions: Transaction[];
+  onUpdate: () => void;
 }
 
-export default function ReceiptUpload({ onSuccess }: Props) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [ocrResult, setOcrResult] = useState<any>(null);
+export default function TransactionList({ transactions, onUpdate }: Props) {
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleDelete = async (id: number) => {
+    if (!confirm('¿Eliminar esta transacción?')) return;
+    
+    const loadingToast = toast.loading('Eliminando...');
+    
+    try {
+      const response = await fetch(`/api/transactions?id=${id}`, { method: 'DELETE' });
+      
+      if (response.ok) {
+        toast.success('🗑️ Transacción eliminada', {
+          id: loadingToast,
+        });
+        onUpdate();
+      } else {
+        toast.error('❌ Error al eliminar', {
+          id: loadingToast,
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      toast.error('❌ Error de conexión', {
+        id: loadingToast,
+      });
+    }
+  };
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreview(reader.result as string);
+  const getCategoryEmoji = (category: string) => {
+    const emojiMap: Record<string, string> = {
+      comida: '🍔', transporte: '🚗', entretenimiento: '🎮', 
+      salud: '💊', educacion: '📚', ropa: '👕',
+      hogar: '🏠', servicios: '💡', salario: '💰',
+      freelance: '💻', otro: '📦'
     };
-    reader.readAsDataURL(file);
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const response = await fetch('/api/ocr', {
-        method: 'POST',
-        body: formData
-      });
-
-      const data = await response.json();
-      setOcrResult(data);
-    } catch (error) {
-      console.error('Error processing receipt:', error);
-      alert('Error al procesar la factura. Intenta nuevamente.');
-    } finally {
-      setUploading(false);
-    }
+    return emojiMap[category.toLowerCase()] || '💵';
   };
 
-  const handleConfirm = async () => {
-    if (!ocrResult) return;
-
-    try {
-      await fetch('/api/transactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'expense',
-          amount: ocrResult.amount,
-          category: ocrResult.category || 'Otro',
-          description: ocrResult.description || '',
-          date: ocrResult.date || new Date().toISOString().split('T')[0],
-          location: ocrResult.location || '',
-          payment_method: ocrResult.payment_method || 'cash',
-          receipt_url: preview
-        })
-      });
-
-      onSuccess();
-      setIsOpen(false);
-      setPreview(null);
-      setOcrResult(null);
-    } catch (error) {
-      console.error('Error saving transaction:', error);
-    }
-  };
+  if (transactions.length === 0) {
+    return (
+      <div className="glass-effect p-12 rounded-2xl text-center">
+        <div className="text-6xl mb-4">📝</div>
+        <p className="text-text-secondary text-lg">No hay transacciones aún</p>
+        <p className="text-text-secondary text-sm mt-2">Comienza agregando tu primera transacción</p>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={() => setIsOpen(true)}
-        className="w-full glass-effect p-6 rounded-2xl flex items-center justify-center gap-3 text-lg font-semibold hover:bg-blue-500/20 transition-all"
-      >
-        <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl">
-          <Camera className="w-6 h-6" />
-        </div>
-        Escanear Factura (OCR)
-      </motion.button>
-
-      {isOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="space-y-3">
+      <AnimatePresence>
+        {transactions.map((transaction, index) => (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="glass-effect p-6 md:p-8 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            key={transaction.id}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ delay: index * 0.05 }}
+            className="glass-effect rounded-2xl overflow-hidden card-hover"
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">Escanear Factura</h2>
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  setPreview(null);
-                  setOcrResult(null);
-                }}
-                className="p-2 hover:bg-white/10 rounded-xl transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {!preview ? (
-              <label className="block cursor-pointer">
-                <div className="border-2 border-dashed border-white/20 rounded-2xl p-12 text-center hover:border-blue-500 transition-colors">
-                  <Upload className="w-16 h-16 mx-auto mb-4 text-blue-400" />
-                  <p className="text-lg font-semibold mb-2">Sube una foto de tu factura</p>
-                  <p className="text-sm text-text-secondary">PNG, JPG hasta 10MB</p>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </div>
-              </label>
-            ) : (
-              <div className="space-y-6">
-                <div className="relative">
-                  <img 
-                    src={preview} 
-                    alt="Receipt preview"
-                    className="w-full rounded-2xl border border-white/20"
-                  />
-                  {uploading && (
-                    <div className="absolute inset-0 bg-black/80 rounded-2xl flex items-center justify-center">
-                      <div className="text-center">
-                        <Loader2 className="w-12 h-12 animate-spin text-blue-400 mx-auto mb-3" />
-                        <p className="text-lg font-semibold">Procesando factura...</p>
-                        <p className="text-sm text-text-secondary">Extrayendo datos con IA</p>
-                      </div>
+            <div
+              onClick={() => setExpandedId(expandedId === transaction.id ? null : transaction.id)}
+              className="p-4 cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 flex-1">
+                  <div className={`p-3 rounded-xl text-2xl ${
+                    transaction.type === 'income' 
+                      ? 'bg-green-500/20' 
+                      : 'bg-red-500/20'
+                  }`}>
+                    {getCategoryEmoji(transaction.category)}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-semibold text-white truncate">{transaction.category}</h4>
+                      {transaction.receipt_url && (
+                        <ImageIcon className="w-4 h-4 text-purple-400" />
+                      )}
                     </div>
-                  )}
+                    {transaction.description && (
+                      <p className="text-sm text-text-secondary truncate">{transaction.description}</p>
+                    )}
+                    <p className="text-xs text-text-secondary mt-1">
+                      {format(new Date(transaction.date), "d 'de' MMMM, yyyy", { locale: es })}
+                    </p>
+                  </div>
                 </div>
 
-                {ocrResult && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="glass-effect p-6 rounded-2xl space-y-4"
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className={`text-lg font-bold ${
+                      transaction.type === 'income' ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Number(transaction.amount))}
+                    </p>
+                  </div>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(transaction.id);
+                    }}
+                    className="p-2 hover:bg-red-500/20 rounded-xl transition-colors"
                   >
-                    <div className="flex items-center gap-2 text-green-400 mb-4">
-                      <CheckCircle className="w-5 h-5" />
-                      <span className="font-semibold">Datos extraídos</span>
-                    </div>
+                    <Trash2 className="w-4 h-4 text-red-400" />
+                  </button>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm text-text-secondary">Monto</label>
-                        <p className="text-2xl font-bold text-white">${ocrResult.amount || '0.00'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-text-secondary">Fecha</label>
-                        <p className="text-lg font-semibold text-white">{ocrResult.date || 'No detectada'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-text-secondary">Lugar</label>
-                        <p className="text-lg font-semibold text-white">{ocrResult.location || 'No detectado'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-text-secondary">Método de pago</label>
-                        <p className="text-lg font-semibold text-white capitalize">{ocrResult.payment_method || 'Efectivo'}</p>
-                      </div>
-                    </div>
+                  <ChevronDown 
+                    className={`w-5 h-5 text-text-secondary transition-transform ${
+                      expandedId === transaction.id ? 'rotate-180' : ''
+                    }`}
+                  />
+                </div>
+              </div>
 
-                    {ocrResult.items && ocrResult.items.length > 0 && (
-                      <div>
-                        <label className="text-sm text-text-secondary mb-2 block">Items detectados</label>
-                        <div className="space-y-1">
-                          {ocrResult.items.map((item: string, i: number) => (
-                            <p key={i} className="text-sm text-white">• {item}</p>
-                          ))}
-                        </div>
+              {/* Expanded Details */}
+              <AnimatePresence>
+                {expandedId === transaction.id && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="mt-4 pt-4 border-t border-white/10 space-y-2"
+                  >
+                    {transaction.payment_method && (
+                      <div className="flex items-center gap-2 text-sm text-text-secondary">
+                        <CreditCard className="w-4 h-4" />
+                        <span className="capitalize">{transaction.payment_method}</span>
+                      </div>
+                    )}
+                    
+                    {transaction.location && (
+                      <div className="flex items-center gap-2 text-sm text-text-secondary">
+                        <MapPin className="w-4 h-4" />
+                        <span>{transaction.location}</span>
                       </div>
                     )}
 
-                    <div className="flex gap-3 pt-4">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={handleConfirm}
-                        className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl font-bold shadow-lg"
-                      >
-                        Confirmar y Guardar
-                      </motion.button>
-                      <button
-                        onClick={() => {
-                          setPreview(null);
-                          setOcrResult(null);
-                        }}
-                        className="px-6 py-3 glass-effect rounded-xl font-semibold hover:bg-white/10"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
+                    {transaction.receipt_url && (
+                      <div className="mt-3">
+                        <img 
+                          src={transaction.receipt_url} 
+                          alt="Receipt"
+                          className="w-full max-w-xs rounded-xl border border-white/20"
+                        />
+                      </div>
+                    )}
                   </motion.div>
                 )}
-              </div>
-            )}
+              </AnimatePresence>
+            </div>
           </motion.div>
-        </div>
-      )}
-    </>
+        ))}
+      </AnimatePresence>
+    </div>
   );
 }

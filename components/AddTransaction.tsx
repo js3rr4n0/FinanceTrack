@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, X, Calendar, Tag, DollarSign, FileText } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface Props {
   onSuccess: () => void;
@@ -21,17 +22,35 @@ export default function AddTransaction({ onSuccess }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const loadingToast = toast.loading('Guardando transacción...');
+    
     try {
-      await fetch('/api/transactions', {
+      const response = await fetch('/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, type, amount: parseFloat(formData.amount) })
       });
-      onSuccess();
-      setFormData({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], payment_method: 'cash' });
-      setIsOpen(false);
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast.success('✅ Transacción guardada exitosamente!', {
+          id: loadingToast,
+        });
+        onSuccess();
+        setFormData({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], payment_method: 'cash' });
+        setIsOpen(false);
+      } else {
+        toast.error(`❌ Error: ${data.error || 'No se pudo guardar'}`, {
+          id: loadingToast,
+        });
+      }
     } catch (error) {
       console.error('Error adding transaction:', error);
+      toast.error('❌ Error de conexión. Intenta nuevamente.', {
+        id: loadingToast,
+      });
     }
   };
 

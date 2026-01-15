@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Trash2, MapPin, CreditCard, Image as ImageIcon, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import toast from 'react-hot-toast';
 
 interface Props {
   transactions: Transaction[];
@@ -19,11 +20,26 @@ export default function TransactionList({ transactions, onUpdate }: Props) {
   const handleDelete = async (id: number) => {
     if (!confirm('¿Eliminar esta transacción?')) return;
     
+    const loadingToast = toast.loading('Eliminando...');
+    
     try {
-      await fetch(`/api/transactions?id=${id}`, { method: 'DELETE' });
-      onUpdate();
+      const response = await fetch(`/api/transactions?id=${id}`, { method: 'DELETE' });
+      
+      if (response.ok) {
+        toast.success('🗑️ Transacción eliminada', {
+          id: loadingToast,
+        });
+        onUpdate();
+      } else {
+        toast.error('❌ Error al eliminar', {
+          id: loadingToast,
+        });
+      }
     } catch (error) {
       console.error('Error deleting transaction:', error);
+      toast.error('❌ Error de conexión', {
+        id: loadingToast,
+      });
     }
   };
 
