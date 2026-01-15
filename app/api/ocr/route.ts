@@ -9,10 +9,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
     }
 
-    const bytes = await image.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const base64Image = buffer.toString('base64');
-
     const mockOcrResult = {
       amount: Math.floor(Math.random() * 100) + 10,
       date: new Date().toISOString().split('T')[0],

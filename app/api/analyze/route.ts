@@ -1,19 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+interface Transaction {
+  type: string;
+  amount: number;
+  category: string;
+}
+
+interface Summary {
+  status: string;
+  balance: number;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { transactions, summary } = await request.json();
+    const { transactions, summary }: { transactions: Transaction[]; summary: Summary } = await request.json();
 
     const totalTransactions = transactions.length;
-    const expenses = transactions.filter((t: any) => t.type === 'expense');
-    const avgExpense = expenses.reduce((sum: number, t: any) => sum + Number(t.amount), 0) / expenses.length;
+    const expenses = transactions.filter((t) => t.type === 'expense');
+    const avgExpense = expenses.reduce((sum, t) => sum + Number(t.amount), 0) / expenses.length;
     
-    const categoryTotals = expenses.reduce((acc: any, t: any) => {
+    const categoryTotals = expenses.reduce((acc, t) => {
       acc[t.category] = (acc[t.category] || 0) + Number(t.amount);
       return acc;
-    }, {});
+    }, {} as Record<string, number>);
     
-    const topCategory = Object.entries(categoryTotals).sort((a: any, b: any) => b[1] - a[1])[0];
+    const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
 
     let analysis = `📊 **ANÁLISIS FINANCIERO PERSONALIZADO**\n\n`;
     
@@ -25,7 +36,7 @@ export async function POST(request: NextRequest) {
     analysis += `• Balance actual: $${summary.balance.toFixed(2)}\n\n`;
     
     if (topCategory) {
-      analysis += `**Categoría con más gasto:** ${topCategory[0]} ($${(topCategory[1] as number).toFixed(2)})\n\n`;
+      analysis += `**Categoría con más gasto:** ${topCategory[0]} ($${topCategory[1].toFixed(2)})\n\n`;
     }
     
     analysis += `**💡 Recomendaciones:**\n\n`;
@@ -45,7 +56,7 @@ export async function POST(request: NextRequest) {
     
     if (topCategory && topCategory[0]) {
       analysis += `📌 **Sobre "${topCategory[0]}":**\n`;
-      analysis += `• Es tu categoría de mayor gasto ($${(topCategory[1] as number).toFixed(2)}).\n`;
+      analysis += `• Es tu categoría de mayor gasto ($${topCategory[1].toFixed(2)}).\n`;
       analysis += `• Busca alternativas más económicas en esta área.\n`;
       analysis += `• Establece un presupuesto mensual específico.\n\n`;
     }
