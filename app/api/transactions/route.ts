@@ -36,20 +36,35 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ transactions: result.rows });
   } catch (error) {
     console.error('Error fetching transactions:', error);
-    return NextResponse.json({ error: 'Failed to fetch transactions', transactions: [] }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to fetch transactions', 
+      message: error instanceof Error ? error.message : 'Unknown error',
+      transactions: [] 
+    }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log('Received transaction data:', body);
+    
     const { type, amount, category, description, date, payment_method, location, receipt_url } = body;
+
+    if (!type || !amount || !category || !date) {
+      return NextResponse.json({ 
+        error: 'Missing required fields',
+        received: body 
+      }, { status: 400 });
+    }
 
     const result = await sql`
       INSERT INTO transactions (type, amount, category, description, date, payment_method, location, receipt_url)
       VALUES (${type}, ${amount}, ${category}, ${description || ''}, ${date}, ${payment_method || 'cash'}, ${location || ''}, ${receipt_url || ''})
       RETURNING *
     `;
+
+    console.log('Transaction created:', result.rows[0]);
 
     await sql`
       INSERT INTO categories (name, type, count)
@@ -58,10 +73,16 @@ export async function POST(request: NextRequest) {
       DO UPDATE SET count = categories.count + 1
     `;
 
-    return NextResponse.json({ transaction: result.rows[0] });
+    return NextResponse.json({ 
+      success: true,
+      transaction: result.rows[0] 
+    });
   } catch (error) {
     console.error('Error creating transaction:', error);
-    return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to create transaction',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
 
@@ -79,6 +100,9 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ message: 'Transaction deleted' });
   } catch (error) {
     console.error('Error deleting transaction:', error);
-    return NextResponse.json({ error: 'Failed to delete transaction' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to delete transaction',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
