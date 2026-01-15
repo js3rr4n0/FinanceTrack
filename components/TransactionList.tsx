@@ -5,8 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import { Trash2, MapPin, CreditCard, Image as ImageIcon, ChevronDown } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -14,7 +12,7 @@ interface Props {
   onUpdate: () => void;
 }
 
-export default function TransactionList({ transactions, onUpdate }: Props) {
+export default function TransactionList({ transactions = [], onUpdate }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const handleDelete = async (id: number) => {
@@ -50,10 +48,25 @@ export default function TransactionList({ transactions, onUpdate }: Props) {
       hogar: '🏠', servicios: '💡', salario: '💰',
       freelance: '💻', otro: '📦'
     };
-    return emojiMap[category.toLowerCase()] || '💵';
+    return emojiMap[category?.toLowerCase()] || '💵';
   };
 
-  if (transactions.length === 0) {
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Fecha no disponible';
+      
+      return date.toLocaleDateString('es-SV', { 
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return 'Fecha no disponible';
+    }
+  };
+
+  if (!transactions || transactions.length === 0) {
     return (
       <div className="glass-effect p-12 rounded-2xl text-center">
         <div className="text-6xl mb-4">📝</div>
@@ -91,7 +104,7 @@ export default function TransactionList({ transactions, onUpdate }: Props) {
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-white truncate">{transaction.category}</h4>
+                      <h4 className="font-semibold text-white truncate">{transaction.category || 'Sin categoría'}</h4>
                       {transaction.receipt_url && (
                         <ImageIcon className="w-4 h-4 text-purple-400" />
                       )}
@@ -100,7 +113,7 @@ export default function TransactionList({ transactions, onUpdate }: Props) {
                       <p className="text-sm text-text-secondary truncate">{transaction.description}</p>
                     )}
                     <p className="text-xs text-text-secondary mt-1">
-                      {format(new Date(transaction.date), "d 'de' MMMM, yyyy", { locale: es })}
+                      {formatDate(transaction.date)}
                     </p>
                   </div>
                 </div>
@@ -110,7 +123,7 @@ export default function TransactionList({ transactions, onUpdate }: Props) {
                     <p className={`text-lg font-bold ${
                       transaction.type === 'income' ? 'text-green-400' : 'text-red-400'
                     }`}>
-                      {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Number(transaction.amount))}
+                      {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Number(transaction.amount) || 0)}
                     </p>
                   </div>
                   
