@@ -5,8 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import { Trash2, MapPin, CreditCard, Image as ImageIcon, ChevronDown } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+
 import toast from 'react-hot-toast';
 
 interface Props {
