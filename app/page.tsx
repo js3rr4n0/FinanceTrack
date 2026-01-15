@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import AddTransaction from '@/components/AddTransaction';
 import TransactionList from '@/components/TransactionList';
@@ -22,31 +22,7 @@ export default function Home() {
   const [filter, setFilter] = useState<'all' | 'week' | 'month' | 'year'>('month');
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'analysis'>('overview');
 
-  useEffect(() => {
-    fetchTransactions();
-    initializeDB();
-  }, [filter]);
-
-  const initializeDB = async () => {
-    try {
-      await fetch('/api/transactions?init=true');
-    } catch (error) {
-      console.error('Error initializing DB:', error);
-    }
-  };
-
-  const fetchTransactions = async () => {
-    try {
-      const response = await fetch(`/api/transactions?filter=${filter}`);
-      const data = await response.json();
-      setTransactions(data.transactions || []);
-      calculateSummary(data.transactions || []);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-    }
-  };
-
-  const calculateSummary = (txns: Transaction[]) => {
+  const calculateSummary = useCallback((txns: Transaction[]) => {
     const income = txns.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
     const expenses = txns.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
     const balance = income - expenses;
@@ -60,7 +36,33 @@ export default function Home() {
     }
 
     setSummary({ totalIncome: income, totalExpenses: expenses, balance, status });
-  };
+  }, []);
+
+  const fetchTransactions = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/transactions?filter=${filter}`);
+      const data = await response.json();
+      const txns = data.transactions || [];
+      setTransactions(txns);
+      calculateSummary(txns);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      setTransactions([]);
+    }
+  }, [filter, calculateSummary]);
+
+  const initializeDB = useCallback(async () => {
+    try {
+      await fetch('/api/transactions?init=true');
+    } catch (error) {
+      console.error('Error initializing DB:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    initializeDB();
+    fetchTransactions();
+  }, [filter, fetchTransactions, initializeDB]);
 
   return (
     <div className="min-h-screen p-4 md:p-8 relative overflow-hidden">
@@ -108,7 +110,7 @@ export default function Home() {
           ].map((item) => (
             <button
               key={item.value}
-              onClick={() => setFilter(item.value as any)}
+              onClick={() => setFilter(item.value as typeof filter)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all whitespace-nowrap ${
                 filter === item.value
                   ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg shadow-purple-500/50'
@@ -130,7 +132,7 @@ export default function Home() {
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as typeof activeTab)}
               className={`py-3 rounded-xl font-semibold transition-all ${
                 activeTab === tab.id
                   ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white'
